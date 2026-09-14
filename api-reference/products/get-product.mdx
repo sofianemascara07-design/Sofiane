@@ -1,0 +1,145 @@
+---
+title: "GET /products/{id} — Get a Single Product"
+sidebarTitle: "GET /products/{id}"
+description: "GET /products/{id} — fetch full details of one recharge product by its ID, including all denominations and required order fields."
+---
+
+Use `GET /products/{id}` to fetch full details of a specific product, including its denomination list and the fields required when placing an order.
+
+## Endpoint
+
+```
+GET https://api.smartech-dz.com/v1/products/{id}
+```
+
+## Authentication
+
+All requests must include a valid Bearer token in the `Authorization` header.
+
+```http
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+## Path Parameters
+
+<ParamField path="id" type="string" required>
+  The unique identifier of the product you want to retrieve. You can obtain this `id` from the `GET /products` endpoint.
+</ParamField>
+
+## Request Example
+
+<CodeGroup>
+
+```bash cURL
+curl https://api.smartech-dz.com/v1/products/prod_ff_100 \
+  -H 'Authorization: Bearer YOUR_ACCESS_TOKEN'
+```
+
+```python Python
+import requests
+
+product_id = "prod_ff_100"
+
+response = requests.get(
+    f"https://api.smartech-dz.com/v1/products/{product_id}",
+    headers={"Authorization": "Bearer YOUR_ACCESS_TOKEN"},
+)
+
+print(response.json())
+```
+
+</CodeGroup>
+
+## Response
+
+Returns `HTTP 200 OK` on success, with the full product object.
+
+<ResponseField name="success" type="boolean">
+  Indicates whether the request was processed successfully. Always `true` on a `200` response.
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The full product object for the requested ID.
+
+  <Expandable title="Product object fields">
+    <ResponseField name="id" type="string">
+      Unique identifier for the product (e.g. `prod_ff_100`).
+    </ResponseField>
+
+    <ResponseField name="name" type="string">
+      Human-readable product name (e.g. `Free Fire 100 Diamonds`).
+    </ResponseField>
+
+    <ResponseField name="category" type="string">
+      The product category. One of `GIFT_CARD`, `PUBG_UC`, or `FREE_FIRE_DIAMOND`.
+    </ResponseField>
+
+    <ResponseField name="description" type="string">
+      A short description of what the product delivers.
+    </ResponseField>
+
+    <ResponseField name="denominations" type="array">
+      The available denominations for this product.
+
+      <Expandable title="Denomination fields">
+        <ResponseField name="id" type="string">
+          Unique identifier for this denomination (e.g. `denom_ff_100`). Reference this when placing an order.
+        </ResponseField>
+
+        <ResponseField name="amount" type="integer">
+          The in-game value delivered (e.g. `100` Diamonds).
+        </ResponseField>
+
+        <ResponseField name="currency" type="string">
+          The currency code for the price. Always `DZD` (Algerian Dinar) for this API.
+        </ResponseField>
+
+        <ResponseField name="price" type="number">
+          The cost of this denomination in `DZD`.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+    <ResponseField name="required_fields" type="array">
+      A list of field names you must include in the order payload for this product (e.g. `["player_id"]`).
+    </ResponseField>
+
+    <ResponseField name="active" type="boolean">
+      Whether the product is currently available for purchase.
+    </ResponseField>
+
+    <ResponseField name="created_at" type="string">
+      ISO 8601 timestamp indicating when the product was added to the catalog.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="requestId" type="string">
+  A unique identifier for this API request. Include this value when contacting support to help with troubleshooting.
+</ResponseField>
+
+```json Example Response
+{
+  "success": true,
+  "data": {
+    "id": "prod_ff_100",
+    "name": "Free Fire 100 Diamonds",
+    "category": "FREE_FIRE_DIAMOND",
+    "description": "Instantly deliver 100 Diamonds to any Free Fire account.",
+    "denominations": [
+      { "id": "denom_ff_100", "amount": 100, "currency": "DZD", "price": 250 }
+    ],
+    "required_fields": ["player_id"],
+    "active": true,
+    "created_at": "2024-01-01T00:00:00Z"
+  },
+  "requestId": "req_def456"
+}
+```
+
+## Error Responses
+
+| HTTP Status | Error Code | Description |
+|---|---|---|
+| `404 Not Found` | `PRODUCT_NOT_FOUND` | No product with the provided ID exists in the catalog. |
+| `401 Unauthorized` | `INVALID_TOKEN` | The Bearer token is missing, malformed, or has expired. |

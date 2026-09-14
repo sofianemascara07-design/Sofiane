@@ -1,47 +1,198 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with Smartech Recharge API in 5 Minutes"
+sidebarTitle: "Quickstart"
+description: "Make your first Gift Card, PUBG UC, or Free Fire Diamond recharge API call in under 5 minutes with step-by-step instructions."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+This guide walks you through obtaining your API token, browsing the product catalog, and placing your first recharge order. By the end you will have a working end-to-end flow you can adapt for Gift Cards, PUBG UC, or Free Fire Diamonds.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Get Your Credentials">
+    Contact [Smartech support](mailto:support@smartech-dz.com) to create your account and receive your `client_id` and `client_secret`. These two values identify your application and are used to generate short-lived Bearer tokens for every API call.
 
-    ```bash
-    npm install your-package
-    ```
+    <Note>
+      Keep your `client_id` and `client_secret` secret at all times. Store them in environment variables or a secrets manager — **never** hard-code them in your source code or commit them to a public (or private) repository.
+    </Note>
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
 
-    ```bash
-    your-cli init
+  <Step title="Generate an Access Token">
+    Exchange your credentials for a Bearer token by calling `POST /auth/token`. The token is valid for 3600 seconds (1 hour); you will need to refresh it before it expires.
+
+    <CodeGroup>
+      ```bash curl
+      curl --request POST \
+        --url https://api.smartech-dz.com/v1/auth/token \
+        --header 'Content-Type: application/x-www-form-urlencoded' \
+        --data 'grant_type=client_credentials' \
+        --data 'client_id=YOUR_CLIENT_ID' \
+        --data 'client_secret=YOUR_CLIENT_SECRET'
+      ```
+
+      ```python Python
+      import requests
+
+      response = requests.post(
+          "https://api.smartech-dz.com/v1/auth/token",
+          data={
+              "grant_type": "client_credentials",
+              "client_id": "YOUR_CLIENT_ID",
+              "client_secret": "YOUR_CLIENT_SECRET",
+          },
+      )
+
+      token_data = response.json()
+      access_token = token_data["access_token"]
+      print(access_token)
+      ```
+    </CodeGroup>
+
+    A successful response returns your Bearer token:
+
+    ```json
+    {
+      "access_token": "eyJhbGciOiJSUzI1NiIsInR...",
+      "token_type": "Bearer",
+      "expires_in": 3600
+    }
     ```
+
+    Save the `access_token` value — you will pass it in the `Authorization` header for every subsequent request.
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
 
-    ```bash
-    your-cli start
+  <Step title="Browse Products">
+    Fetch the full product catalog to find the `id` and available `denominations` for the product you want to recharge.
+
+    ```bash curl
+    curl --request GET \
+      --url https://api.smartech-dz.com/v1/products \
+      --header 'Authorization: Bearer YOUR_ACCESS_TOKEN'
     ```
+
+    The response lists all available products. Here is a trimmed example:
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "products": [
+          {
+            "id": "prod_gc_google_play",
+            "name": "Google Play Gift Card",
+            "category": "gift_card",
+            "denominations": [500, 1000, 2000, 5000]
+          },
+          {
+            "id": "prod_pubg_uc",
+            "name": "PUBG Unknown Cash (UC)",
+            "category": "pubg_uc",
+            "denominations": [60, 325, 660, 1800, 3850, 8100]
+          },
+          {
+            "id": "prod_ff_diamonds",
+            "name": "Free Fire Diamonds",
+            "category": "free_fire",
+            "denominations": [100, 310, 520, 1060, 2180, 5600]
+          }
+        ]
+      },
+      "requestId": "req_cat_789xyz"
+    }
+    ```
+
+    Note the `id` of the product you want to purchase — you will use it in the next step.
+  </Step>
+
+  <Step title="Place a Recharge Order">
+    Submit a recharge order by calling `POST /orders`. The required body fields vary slightly by product category:
+
+    - **Gaming products** (`pubg_uc`, `free_fire`): provide the player's `player_id`.
+    - **Gift cards**: provide the `card_code` (recipient's card number) instead of `player_id`.
+
+    <CodeGroup>
+      ```bash curl
+      curl --request POST \
+        --url https://api.smartech-dz.com/v1/orders \
+        --header 'Authorization: Bearer YOUR_ACCESS_TOKEN' \
+        --header 'Content-Type: application/json' \
+        --data '{
+          "product_id": "prod_pubg_uc",
+          "player_id": "5271234567",
+          "denomination": 660
+        }'
+      ```
+
+      ```python Python
+      import requests
+
+      response = requests.post(
+          "https://api.smartech-dz.com/v1/orders",
+          headers={"Authorization": f"Bearer {access_token}"},
+          json={
+              "product_id": "prod_pubg_uc",
+              "player_id": "5271234567",
+              "denomination": 660,
+          },
+      )
+
+      order = response.json()
+      print(order["data"]["order_id"])
+      ```
+    </CodeGroup>
+
+    The API acknowledges the order immediately and begins processing:
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "order_id": "ord_k9pQ3rTz",
+        "product_id": "prod_pubg_uc",
+        "denomination": 660,
+        "player_id": "5271234567",
+        "status": "processing",
+        "created_at": "2025-01-15T10:32:00Z"
+      },
+      "requestId": "req_ord_001abc"
+    }
+    ```
+
+    Save the `order_id` — you will use it to poll for the final delivery status.
+  </Step>
+
+  <Step title="Check Order Status">
+    Poll `GET /orders/{order_id}` to confirm the recharge was delivered successfully.
+
+    ```bash curl
+    curl --request GET \
+      --url https://api.smartech-dz.com/v1/orders/ord_k9pQ3rTz \
+      --header 'Authorization: Bearer YOUR_ACCESS_TOKEN'
+    ```
+
+    Once the recharge is complete, the response shows `status: "completed"` along with delivery details:
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "order_id": "ord_k9pQ3rTz",
+        "product_id": "prod_pubg_uc",
+        "denomination": 660,
+        "player_id": "5271234567",
+        "status": "completed",
+        "delivery": {
+          "delivered_at": "2025-01-15T10:32:18Z",
+          "confirmation_code": "DLV-88291"
+        },
+        "created_at": "2025-01-15T10:32:00Z"
+      },
+      "requestId": "req_ord_002def"
+    }
+    ```
+
+    Possible `status` values are `processing`, `completed`, and `failed`. For `failed` orders, the `data` object includes a `failure_reason` field describing why the order could not be fulfilled.
   </Step>
 </Steps>
 
 <Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
-
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+  You have now completed a full recharge flow end-to-end. For detailed parameter references, error codes, and webhook configuration, see the [full API Reference](/api-reference). Ready to go deeper? Check out the per-product guides for [Gift Cards](/guides/recharge-gift-card), [PUBG UC](/guides/recharge-pubg), and [Free Fire Diamonds](/guides/recharge-freefire).
 </Tip>

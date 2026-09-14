@@ -1,0 +1,166 @@
+---
+title: "GET /products — List Available Recharge Products"
+sidebarTitle: "GET /products"
+description: "GET /products — retrieve the full catalog of recharge products. Filter by category (GIFT_CARD, PUBG_UC, FREE_FIRE_DIAMOND) and active status."
+---
+
+Use `GET /products` to retrieve all available recharge products in your catalog, including their denominations, required fields, and availability status. This is typically the first call you make when building a product selection UI.
+
+## Endpoint
+
+```
+GET https://api.smartech-dz.com/v1/products
+```
+
+## Authentication
+
+All requests must include a valid Bearer token in the `Authorization` header.
+
+```http
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+## Query Parameters
+
+<ParamField query="category" type="string">
+  Filter results by product category. Accepted values: `GIFT_CARD`, `PUBG_UC`, `FREE_FIRE_DIAMOND`. Omit this parameter to return products across all categories.
+</ParamField>
+
+<ParamField query="active" type="boolean">
+  When `true`, only products currently available for purchase are returned. Defaults to `true`.
+</ParamField>
+
+<ParamField query="page" type="integer">
+  The page number to retrieve. Use this together with `limit` to paginate through large catalogs. Defaults to `1`.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  The number of results to return per page. Maximum value is `100`. Defaults to `20`.
+</ParamField>
+
+## Request Example
+
+<CodeGroup>
+
+```bash cURL
+curl https://api.smartech-dz.com/v1/products?category=FREE_FIRE_DIAMOND \
+  -H 'Authorization: Bearer YOUR_ACCESS_TOKEN'
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "https://api.smartech-dz.com/v1/products",
+    params={"category": "FREE_FIRE_DIAMOND"},
+    headers={"Authorization": "Bearer YOUR_ACCESS_TOKEN"},
+)
+
+print(response.json())
+```
+
+```javascript JavaScript
+const response = await fetch(
+  "https://api.smartech-dz.com/v1/products?category=FREE_FIRE_DIAMOND",
+  {
+    headers: {
+      Authorization: "Bearer YOUR_ACCESS_TOKEN",
+    },
+  }
+);
+
+const data = await response.json();
+console.log(data);
+```
+
+</CodeGroup>
+
+## Response
+
+Returns `HTTP 200 OK` on success, with a paginated list of product objects.
+
+<ResponseField name="success" type="boolean">
+  Indicates whether the request was processed successfully. Always `true` on a `200` response.
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  An array of product objects matching your query filters.
+
+  <Expandable title="Product object fields">
+    <ResponseField name="id" type="string">
+      Unique identifier for the product (e.g. `prod_ff_100`). Use this ID when placing orders or fetching a specific product.
+    </ResponseField>
+
+    <ResponseField name="name" type="string">
+      Human-readable product name (e.g. `Free Fire 100 Diamonds`).
+    </ResponseField>
+
+    <ResponseField name="category" type="string">
+      The product category. One of `GIFT_CARD`, `PUBG_UC`, or `FREE_FIRE_DIAMOND`.
+    </ResponseField>
+
+    <ResponseField name="denominations" type="array">
+      The available denominations for this product. Each entry includes an `id`, `amount`, `currency`, and `price`.
+    </ResponseField>
+
+    <ResponseField name="required_fields" type="array">
+      A list of field names you must supply when placing an order for this product (e.g. `["player_id"]`).
+    </ResponseField>
+
+    <ResponseField name="active" type="boolean">
+      Whether the product is currently available for purchase.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  Metadata about the current page of results.
+
+  <Expandable title="Pagination fields">
+    <ResponseField name="pagination.page" type="integer">
+      The current page number.
+    </ResponseField>
+
+    <ResponseField name="pagination.limit" type="integer">
+      The number of results returned per page.
+    </ResponseField>
+
+    <ResponseField name="pagination.total" type="integer">
+      The total number of products matching your query across all pages.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="requestId" type="string">
+  A unique identifier for this API request. Include this value when contacting support to help with troubleshooting.
+</ResponseField>
+
+```json Example Response
+{
+  "success": true,
+  "data": [
+    {
+      "id": "prod_ff_100",
+      "name": "Free Fire 100 Diamonds",
+      "category": "FREE_FIRE_DIAMOND",
+      "denominations": [
+        { "id": "denom_ff_100", "amount": 100, "currency": "DZD", "price": 250 }
+      ],
+      "required_fields": ["player_id"],
+      "active": true
+    },
+    {
+      "id": "prod_ff_310",
+      "name": "Free Fire 310 Diamonds",
+      "category": "FREE_FIRE_DIAMOND",
+      "denominations": [
+        { "id": "denom_ff_310", "amount": 310, "currency": "DZD", "price": 700 }
+      ],
+      "required_fields": ["player_id"],
+      "active": true
+    }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 2 },
+  "requestId": "req_abc123"
+}
+```

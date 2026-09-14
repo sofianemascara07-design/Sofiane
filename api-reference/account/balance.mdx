@@ -1,0 +1,94 @@
+---
+title: "GET /account/balance — Check Your API Balance"
+sidebarTitle: "GET /account/balance"
+description: "GET /account/balance — retrieve the current DZD balance on your Smartech Recharge API account, including reserved and available amounts."
+---
+
+Your Smartech Recharge account holds a prepaid balance in DZD (Algerian Dinar). Every recharge order deducts from this balance. Use `GET /account/balance` to monitor your available funds and avoid failed orders due to insufficient balance.
+
+## Endpoint
+
+```
+GET https://api.smartech-dz.com/v1/account/balance
+```
+
+## Authentication
+
+This endpoint requires a valid Bearer token. Include your token in the `Authorization` header of every request.
+
+```
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+## Request Example
+
+<CodeGroup>
+
+```bash cURL
+curl https://api.smartech-dz.com/v1/account/balance \
+  -H 'Authorization: Bearer YOUR_ACCESS_TOKEN'
+```
+
+```python Python
+import requests
+
+url = "https://api.smartech-dz.com/v1/account/balance"
+headers = {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN"
+}
+
+response = requests.get(url, headers=headers)
+print(response.json())
+```
+
+</CodeGroup>
+
+## Response
+
+Returns HTTP `200` on success.
+
+<ResponseField name="available_balance" type="number">
+  Funds currently available for new orders, denominated in DZD.
+</ResponseField>
+
+<ResponseField name="reserved_balance" type="number">
+  Funds held in reserve for orders that are currently in progress and not yet settled.
+</ResponseField>
+
+<ResponseField name="total_balance" type="number">
+  The sum of `available_balance` and `reserved_balance`, representing your full account balance in DZD.
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  The currency of your balance. Always `DZD`.
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  ISO 8601 timestamp of the last change to your account balance.
+</ResponseField>
+
+```json Sample Response
+{
+  "success": true,
+  "data": {
+    "available_balance": 15000.00,
+    "reserved_balance": 500.00,
+    "total_balance": 15500.00,
+    "currency": "DZD",
+    "updated_at": "2024-01-15T10:00:00Z"
+  },
+  "requestId": "req_bal123"
+}
+```
+
+## Low Balance Alerts
+
+We recommend building a balance check into your workflow before dispatching each batch of recharge orders. Fetching your balance ahead of time lets you catch shortfalls before they cause order failures and simplifies debugging.
+
+<Warning>
+  Orders will fail with the error code `INSUFFICIENT_BALANCE` if your `available_balance` drops below the cost of an individual order. If your balance runs low, contact [Smartech support](https://smartech-dz.com/support) to top up your account before submitting further orders.
+</Warning>
+
+<Tip>
+  Monitor your balance programmatically by polling `GET /account/balance` at a regular interval or after every order batch. Set a threshold — for example, 2,000 DZD — and trigger an internal alert or notification whenever your `available_balance` falls below it. This gives you time to top up before orders start failing.
+</Tip>

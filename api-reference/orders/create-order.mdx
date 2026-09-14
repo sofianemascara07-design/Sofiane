@@ -1,0 +1,180 @@
+---
+title: "POST /orders — Create a Recharge Order"
+sidebarTitle: "POST /orders"
+description: "POST /orders — place a new recharge order for Gift Cards, PUBG UC, or Free Fire Diamonds. Supports idempotency keys and webhook callbacks."
+---
+
+`POST /orders` is the core endpoint of the Smartech Recharge API. It creates a new recharge order and initiates delivery to the specified player account or gift card.
+
+## Endpoint
+
+```
+POST https://api.smartech-dz.com/v1/orders
+```
+
+## Authentication
+
+All requests to this endpoint require a valid Bearer token. Include your API key in the `Authorization` header of every request.
+
+## Headers
+
+| Header | Required | Description |
+|---|---|---|
+| `Authorization: Bearer <token>` | Required | Your Smartech API key. |
+| `Content-Type: application/json` | Required | Must be `application/json`. |
+| `Idempotency-Key: <uuid>` | Recommended | A unique UUID v4 you generate per request. If you retry a request with the same key within 24 hours, Smartech returns the original response instead of creating a duplicate order. |
+
+## Request Body
+
+<ParamField body="product_id" type="string" required>
+  The unique identifier of the product you want to recharge. Retrieve available product IDs from the `GET /products` endpoint.
+</ParamField>
+
+<ParamField body="denomination_id" type="string" required>
+  The unique identifier of the denomination or face value you want to purchase for the chosen product. Retrieve available denomination IDs from `GET /products/{id}/denominations`.
+</ParamField>
+
+<ParamField body="player_id" type="string">
+  The player's in-game UID for the target account. **Required** when the product category is `PUBG_UC` or `FREE_FIRE_DIAMOND`. Not used for `GIFT_CARD` orders.
+</ParamField>
+
+<ParamField body="card_code" type="string">
+  The gift card identifier associated with the recharge target. **Required** for `GIFT_CARD` orders where applicable. Not used for in-game top-up products.
+</ParamField>
+
+<ParamField body="recipient_email" type="string">
+  The recipient's email address. Used only for gift cards that are delivered via email. If provided, the card details are sent to this address upon successful delivery.
+</ParamField>
+
+<ParamField body="callback_url" type="string">
+  A fully qualified HTTPS URL to receive webhook notifications when the order status changes. The URL must be publicly reachable. See the [Callbacks guide](/concepts/callbacks) for payload structure and signature verification.
+</ParamField>
+
+<ParamField body="reference" type="string">
+  Your own internal order reference or identifier. Accepts any alphanumeric string up to 100 characters. Stored as-is and returned in all order responses to help you correlate Smartech orders with your system records.
+</ParamField>
+
+## Request Examples
+
+<CodeGroup>
+
+```bash PUBG UC
+curl --request POST \
+  --url https://api.smartech-dz.com/v1/orders \
+  --header 'Authorization: Bearer sk_live_your_api_key' \
+  --header 'Content-Type: application/json' \
+  --header 'Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000' \
+  --data '{
+    "product_id": "prod_pubg_60uc",
+    "denomination_id": "denom_pubg_60uc",
+    "player_id": "5271309534",
+    "callback_url": "https://yourapp.com/webhooks/smartech",
+    "reference": "order-001"
+  }'
+```
+
+```bash Free Fire Diamonds
+curl --request POST \
+  --url https://api.smartech-dz.com/v1/orders \
+  --header 'Authorization: Bearer sk_live_your_api_key' \
+  --header 'Content-Type: application/json' \
+  --header 'Idempotency-Key: 660e9511-f30c-52e5-b827-557766551111' \
+  --data '{
+    "product_id": "prod_ff_100",
+    "denomination_id": "denom_ff_100",
+    "player_id": "123456789",
+    "callback_url": "https://yourapp.com/webhooks/smartech",
+    "reference": "order-003"
+  }'
+```
+
+```bash Gift Card
+curl --request POST \
+  --url https://api.smartech-dz.com/v1/orders \
+  --header 'Authorization: Bearer sk_live_your_api_key' \
+  --header 'Content-Type: application/json' \
+  --header 'Idempotency-Key: 770fa622-g41d-63f6-c938-668877662222' \
+  --data '{
+    "product_id": "prod_gc_steam_500",
+    "denomination_id": "denom_gc_steam_500dzd",
+    "card_code": "STEAM-GC-DZ-9900",
+    "recipient_email": "player@example.com",
+    "callback_url": "https://yourapp.com/webhooks/smartech",
+    "reference": "order-002"
+  }'
+```
+
+</CodeGroup>
+
+## Response
+
+A successful request returns **HTTP 201 Created** with the newly created order object.
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "ord_abc123",
+    "status": "processing",
+    "product_id": "prod_ff_100",
+    "denomination_id": "denom_ff_100",
+    "player_id": "123456789",
+    "reference": "order-003",
+    "created_at": "2024-01-15T10:30:00Z"
+  },
+  "requestId": "req_xyz789"
+}
+```
+
+<ResponseField name="success" type="boolean">
+  `true` when the request was accepted and the order was created successfully.
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The created order object.
+
+  <Expandable title="data fields">
+    <ResponseField name="data.id" type="string">
+      The unique Smartech order ID. Use this value with `GET /orders/{id}` to track delivery.
+    </ResponseField>
+
+    <ResponseField name="data.status" type="string">
+      The current order status. Newly created orders are always `processing`. Possible values: `pending`, `processing`, `completed`, `failed`, `refunded`.
+    </ResponseField>
+
+    <ResponseField name="data.product_id" type="string">
+      The product ID specified in your request.
+    </ResponseField>
+
+    <ResponseField name="data.denomination_id" type="string">
+      The denomination ID specified in your request.
+    </ResponseField>
+
+    <ResponseField name="data.player_id" type="string">
+      The in-game player UID submitted in your request. Present only for `PUBG_UC` and `FREE_FIRE_DIAMOND` orders.
+    </ResponseField>
+
+    <ResponseField name="data.reference" type="string">
+      Your internal reference string, echoed back from the request body.
+    </ResponseField>
+
+    <ResponseField name="data.created_at" type="string">
+      ISO 8601 timestamp indicating when the order was created.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="requestId" type="string">
+  A unique identifier for this API call, useful when contacting Smartech support to trace a specific request.
+</ResponseField>
+
+## Error Responses
+
+| HTTP Status | Error Code | Description |
+|---|---|---|
+| `400` | `INVALID_PLAYER_ID` | The `player_id` value provided does not match a valid in-game account. Verify the UID in-game before retrying. |
+| `400` | `INVALID_DENOMINATION` | The `denomination_id` does not exist or is not valid for the specified `product_id`. |
+| `402` | `INSUFFICIENT_BALANCE` | Your Smartech wallet balance is too low to cover this order. Top up your balance and retry. |
+| `404` | `PRODUCT_NOT_FOUND` | No product matching the given `product_id` exists in your accessible catalog. |
+| `422` | `PRODUCT_UNAVAILABLE` | The product or denomination is currently out of stock or temporarily disabled. |
+| `409` | `DUPLICATE_ORDER` | A request with the same `Idempotency-Key` was already processed. The original order response is returned. |

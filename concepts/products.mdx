@@ -1,0 +1,120 @@
+---
+title: "Products and Denominations in Smartech Recharge API"
+sidebarTitle: "Products"
+description: "Understand how the Smartech product catalog works, including categories, denominations, and player identifier requirements for each product type."
+---
+
+The product catalog is the central registry of all top-up items available through the Smartech Recharge API. Every order you create must reference a valid product and denomination — the catalog defines what you can sell, at what price, and what player information you need to collect before placing an order.
+
+## Product Categories
+
+Smartech groups all products into three categories. You can filter the catalog by category when listing products to keep your integration focused on only the items you offer.
+
+<CardGroup cols={3}>
+  <Card title="Gift Cards" icon="gift">
+    **`GIFT_CARD`**
+
+    Prepaid gift cards from a variety of brands. The card value is delivered as a redeemable code or sent to the recipient's email address, depending on the brand.
+  </Card>
+  <Card title="PUBG UC" icon="gamepad">
+    **`PUBG_UC`**
+
+    PUBG Unknown Cash for mobile and PC. UC is credited directly to the player's account using their in-game numeric player ID.
+  </Card>
+  <Card title="Free Fire Diamonds" icon="gem">
+    **`FREE_FIRE_DIAMOND`**
+
+    Garena Free Fire Diamonds. Diamonds are credited directly to the player's account using their numeric Free Fire UID.
+  </Card>
+</CardGroup>
+
+## Product Object
+
+Each item in the catalog is represented as a product object. The example below shows a Free Fire Diamond product with a single denomination.
+
+```json
+{
+  "id": "prod_ff_100",
+  "name": "Free Fire 100 Diamonds",
+  "category": "FREE_FIRE_DIAMOND",
+  "denominations": [
+    { "id": "denom_ff_100", "amount": 100, "currency": "DZD", "price": 250 }
+  ],
+  "required_fields": ["player_id"],
+  "active": true
+}
+```
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the product. Pass this value as `product_id` when creating an order.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Human-readable display name for the product, suitable for showing in your storefront or checkout UI.
+</ResponseField>
+
+<ResponseField name="category" type="string" required>
+  The product category. One of `GIFT_CARD`, `PUBG_UC`, or `FREE_FIRE_DIAMOND`.
+</ResponseField>
+
+<ResponseField name="denominations" type="array" required>
+  A list of available denominations for this product. Each denomination represents a purchasable amount at a specific price.
+
+  <Expandable title="denomination object">
+    <ResponseField name="denominations[].id" type="string" required>
+      Unique identifier for the denomination. Pass this value as `denomination_id` when creating an order.
+    </ResponseField>
+
+    <ResponseField name="denominations[].amount" type="number" required>
+      The in-game value delivered to the player — for example, `100` Diamonds or `600` UC.
+    </ResponseField>
+
+    <ResponseField name="denominations[].currency" type="string" required>
+      The billing currency for this denomination. Currently always `DZD` (Algerian Dinar).
+    </ResponseField>
+
+    <ResponseField name="denominations[].price" type="number" required>
+      The cost of this denomination charged to your API balance, in the denomination's `currency`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="required_fields" type="array" required>
+  A list of field names you must supply when creating an order for this product. See [Required Fields](#required-fields) below for details per category.
+</ResponseField>
+
+<ResponseField name="active" type="boolean" required>
+  Whether the product is currently available for ordering. When `false`, the product is temporarily unavailable and orders against it will be rejected.
+</ResponseField>
+
+## Required Fields
+
+The `required_fields` array tells you exactly what player or recipient information to collect before placing an order. Requirements differ by product category.
+
+| Category | Required Field(s) | Description |
+|---|---|---|
+| `GIFT_CARD` | `card_code` or `recipient_email` | Either the card code to be delivered, or the email address of the recipient, depending on the brand's delivery method. |
+| `PUBG_UC` | `player_id` | The player's numeric in-game PUBG ID. UC is credited directly to this account. |
+| `FREE_FIRE_DIAMOND` | `player_id` | The player's numeric Free Fire UID. Diamonds are credited directly to this account. |
+
+Always read `required_fields` from the product object at runtime rather than hardcoding assumptions — requirements can vary even within the same category.
+
+## Listing Products
+
+You can retrieve the full product catalog — or a filtered subset — using the following endpoint:
+
+```
+GET /products
+```
+
+An optional `category` query parameter lets you filter results to a single category:
+
+```
+GET /products?category=FREE_FIRE_DIAMOND
+```
+
+For full request and response details, see the [Products API reference](/api-reference/products).
+
+<Tip>
+  Products with `active: false` are temporarily unavailable and cannot be ordered. Filter these out of your storefront UI and check back later — availability is updated in real time as stock and supplier connectivity changes.
+</Tip>

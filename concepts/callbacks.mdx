@@ -1,0 +1,188 @@
+---
+title: "Webhooks and Real-Time Order Callbacks"
+sidebarTitle: "Callbacks"
+description: "Configure webhooks to receive real-time notifications when your Smartech Recharge orders change status — no polling required."
+---
+
+Instead of repeatedly calling `GET /orders/{id}` to check whether a recharge has been delivered, you can register a webhook URL and receive real-time HTTP POST callbacks the moment an order's status changes. Webhooks reduce latency, cut unnecessary API traffic, and let you react to delivery events — like unlocking a purchase or notifying a customer — as soon as they happen.
+
+## Configuring Your Webhook
+
+You can provide a webhook endpoint in two ways:
+
+- **Per-order** — include a `callback_url` field in the request body when creating an order. This URL receives callbacks only for that specific order.
+- **Account default** — set a default callback URL in your account settings in the Smartech dashboard. Every order that does not specify its own `callback_url` will use this default.
+
+Per-order URLs take precedence over your account default, so you can route callbacks for specific order types to different services if needed.
+
+```json
+{
+  "product_id": "prod_ff_100",
+  "denomination_id": "denom_ff_100",
+  "player_id": "123456789",
+  "callback_url": "https://yourdomain.com/webhooks/smartech"
+}
+```
+
+<Note>
+  Your webhook endpoint must be reachable over public HTTPS. Smartech does not deliver callbacks to HTTP endpoints or private network addresses. Your endpoint must return an HTTP `200` status code within **5 seconds** — responses that time out or return any non-`200` status are treated as failed deliveries and will be retried.
+</Note>
+
+## Callback Payload
+
+When an order status changes, Smartech sends an HTTP POST request to your webhook URL with a JSON body in the following shape:
+
+```json
+{
+  "event": "order.completed",
+  "order_id": "ord_abc123",
+  "status": "completed",
+  "reference": "your-internal-ref-001",
+  "timestamp": "2024-01-15T10:30:45Z",
+  "delivery": {
+    "delivered_at": "2024-01-15T10:30:45Z",
+    "confirmation_code": "FF-XYZ-789"
+  }
+}
+```
+
+<ResponseField name="event" type="string" required>
+  The event type that triggered this callback. See [Event Types](#event-types) for all possible values.
+</ResponseField>
+
+<ResponseField name="order_id" type="string" required>
+  The Smartech-issued unique identifier of the order that changed status.
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  The new status of the order at the time the event was fired.
+</ResponseField>
+
+<ResponseField name="reference" type="string">
+  Your internal reference string, if one was provided when the order was created. Use this to look up the corresponding record in your own system without maintaining a separate ID mapping.
+</ResponseField>
+
+<ResponseField name="timestamp" type="string" required>
+  ISO 8601 timestamp for when the status change occurred.
+</ResponseField>
+
+<ResponseField name="delivery" type="object">
+  Present only on `order.completed` events. Contains delivery confirmation details.
+
+  <Expandable title="delivery object">
+    <ResponseField name="delivery.delivered_at" type="string" required>
+      ISO 8601 timestamp for when the recharge was successfully delivered.
+    </ResponseField>
+
+    <ResponseField name="delivery.confirmation_code" type="string" required>
+      A supplier-issued confirmation code for the delivery. Store this for dispute resolution and customer support.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Event Types
+
+Smartech emits a callback for each of the following events. A single order can trigger multiple events as it moves through its lifecycle.
+
+| Event | Triggered When |
+|---|---|
+| `order.processing` | The recharge delivery has begun. The order has moved from `pending` to `processing`. |
+| `order.completed` | The recharge was delivered successfully. The `delivery` object is included in the payload. |
+| `order.failed` | Delivery failed. Retrieve the full order object to inspect the `error_code`. |
+| `order.refunded` | The order amount has been credited back to your API balance. |
+
+## Verifying Callback Authenticity
+
+Every callback Smartech sends includes an `X-Smartech-Signature` header. This is an HMAC-SHA256 digest of the raw request body, signed with the webhook secret shown in your account settings.
+
+Always verify this signature before processing a callback. This prevents bad actors from sending forged payloads to your webhook endpoint.
+
+<CodeGroup>
+
+```python Python
+import hmac
+import hashlib
+
+def verify_signature(raw_body: bytes, signature_header: str, secret: str) -> bool:
+    expected = hmac.new(
+        key=secret.encode("utf-8"),
+        msg=raw_body,
+        digestmod=hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature_header)
+
+# Usage — example with Flask
+from flask import Flask, request, abort
+
+app = Flask(__name__)
+WEBHOOK_SECRET = "your_webhook_secret"
+
+@app.route("/webhooks/smartech", methods=["POST"])
+def handle_callback():
+    signature = request.headers.get("X-Smartech-Signature", "")
+    if not verify_signature(request.get_data(), signature, WEBHOOK_SECRET):
+        abort(403)
+
+    payload = request.get_json()
+    # Handle payload...
+    return "", 200
+```
+
+```javascript Node.js
+const crypto = require("crypto");
+
+function verifySignature(rawBody, signatureHeader, secret) {
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody)
+    .digest("hex");
+  return crypto.timingSafeEqual(
+    Buffer.from(expected),
+    Buffer.from(signatureHeader)
+  );
+}
+
+// Usage — example with Express
+const express = require("express");
+const app = express();
+const WEBHOOK_SECRET = "your_webhook_secret";
+
+app.post(
+  "/webhooks/smartech",
+  express.raw({ type: "application/json" }),
+  (req, res) => {
+    const signature = req.headers["x-smartech-signature"] || "";
+    if (!verifySignature(req.body, signature, WEBHOOK_SECRET)) {
+      return res.sendStatus(403);
+    }
+
+    const payload = JSON.parse(req.body);
+    // Handle payload...
+    res.sendStatus(200);
+  }
+);
+```
+
+</CodeGroup>
+
+<Note>
+  Use a constant-time comparison function (`hmac.compare_digest` in Python, `crypto.timingSafeEqual` in Node.js) when comparing signatures. Standard equality checks (`==`, `===`) are vulnerable to timing attacks.
+</Note>
+
+## Retry Policy
+
+If your endpoint fails to respond with HTTP `200` within 5 seconds, Smartech marks the delivery as failed and schedules a retry. Failed callbacks are retried up to **5 times** using exponential backoff:
+
+| Attempt | Delay After Previous Failure |
+|---|---|
+| 1st retry | 1 minute |
+| 2nd retry | 5 minutes |
+| 3rd retry | 15 minutes |
+| 4th retry | 30 minutes |
+| 5th retry | 1 hour |
+
+If all five retries are exhausted without a successful response, no further delivery attempts are made. You can still retrieve the order's final status at any time using `GET /orders/{id}`.
+
+<Warning>
+  Because of retries, **your webhook endpoint may receive the same event more than once**. Design your handler to be idempotent — processing the same `order_id` and `event` combination a second time should produce no side effects. A simple approach is to record each `(order_id, event)` pair in your database and skip processing if it has already been handled.
+</Warning>

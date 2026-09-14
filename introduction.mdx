@@ -1,0 +1,79 @@
+---
+title: "Smartech Recharge API: Instant Digital Top-Ups"
+sidebarTitle: "Introduction"
+description: "Learn how the Smartech Recharge API works and what you can build — Gift Cards, PUBG UC, and Free Fire Diamonds in one integration."
+---
+
+The Smartech Recharge API is a unified REST API that enables businesses to programmatically deliver digital top-ups to end users across Algeria. With a single integration, you can automate Gift Card top-ups, PUBG Unknown Cash (UC) purchases, and Free Fire Diamond recharges — all through a consistent, developer-friendly interface backed by real-time delivery infrastructure.
+
+<CardGroup cols={3}>
+  <Card title="Gift Cards" icon="gift" href="/guides/recharge-gift-card">
+    Top up a wide range of gift card denominations programmatically and deliver codes instantly to your users.
+  </Card>
+  <Card title="PUBG UC" icon="gamepad" href="/guides/recharge-pubg">
+    Purchase and deliver PUBG Unknown Cash directly to a player's account using their Player ID.
+  </Card>
+  <Card title="Free Fire Diamonds" icon="fire" href="/guides/recharge-freefire">
+    Recharge Free Fire Diamonds straight to a player's account in seconds via the API.
+  </Card>
+</CardGroup>
+
+## Who Is This For?
+
+The Smartech Recharge API is designed for developers and businesses that need to automate digital recharge workflows at scale. Whether you are building a **reseller platform**, an **e-commerce shop**, a **gaming portal**, or any other application that delivers digital value to end users, this API gives you the programmatic control to do it reliably and efficiently.
+
+Common use cases include:
+
+- **Reseller dashboards** that let sub-agents purchase and distribute recharge products.
+- **E-commerce checkouts** that fulfil gift card orders automatically after payment.
+- **Gaming portals** that let players top up PUBG UC or Free Fire Diamonds without leaving your platform.
+- **Loyalty and rewards systems** that distribute digital credits to users on trigger events.
+
+## Base URL
+
+Every API request is made to the following base URL:
+
+```
+https://api.smartech-dz.com/v1
+```
+
+All endpoints documented in this reference are relative to this base URL. For example, the products endpoint is available at `https://api.smartech-dz.com/v1/products`.
+
+## Response Format
+
+All API responses are returned as **JSON**. Successful responses follow a consistent envelope structure:
+
+```json
+{
+  "success": true,
+  "data": { ... },
+  "requestId": "req_abc123"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `success` | boolean | `true` for successful responses, `false` when an error occurred. |
+| `data` | object | The payload specific to the endpoint that was called. |
+| `requestId` | string | A unique identifier for the request, useful when contacting support. |
+
+Error responses follow the same envelope and include an additional `error` object inside `data` with a machine-readable `code` and a human-readable `message`.
+
+## Rate Limits
+
+All requests are rate limited **per API key**. Your specific rate limit tier depends on your account plan. To learn about the limits that apply to your key or to request a higher tier, contact [Smartech support](mailto:support@smartech-dz.com).
+
+<Note>
+  If you receive a `429 Too Many Requests` response, do not retry immediately. Implement **exponential backoff** — wait an increasing amount of time between each retry attempt (for example, 1 s, 2 s, 4 s, 8 s) to avoid compounding the load on the API and to ensure your requests eventually succeed.
+</Note>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Make your first API call in under 5 minutes with step-by-step instructions.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference">
+    Browse every endpoint, parameter, and response schema in the full API Reference.
+  </Card>
+</CardGroup>

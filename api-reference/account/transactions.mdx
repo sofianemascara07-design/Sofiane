@@ -1,0 +1,114 @@
+---
+title: "GET /account/transactions — View Balance History"
+sidebarTitle: "GET /account/transactions"
+description: "GET /account/transactions — retrieve a paginated history of all debits and credits on your Smartech Recharge API account balance."
+---
+
+`GET /account/transactions` returns a full audit trail of balance changes on your account — including order debits, refunds, and top-up credits. Use this endpoint to reconcile your balance or generate billing reports.
+
+## Endpoint
+
+```
+GET https://api.smartech-dz.com/v1/account/transactions
+```
+
+## Authentication
+
+This endpoint requires a valid Bearer token. Include your token in the `Authorization` header of every request.
+
+```
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+## Query Parameters
+
+<ParamField query="type" type="string">
+  Filter transactions by type. Accepted values are `debit`, `credit`, or `refund`. Omit this parameter to return all transaction types.
+</ParamField>
+
+<ParamField query="from" type="string">
+  Return only transactions created at or after this datetime. Must be a valid ISO 8601 string (e.g. `2024-01-01T00:00:00Z`).
+</ParamField>
+
+<ParamField query="to" type="string">
+  Return only transactions created at or before this datetime. Must be a valid ISO 8601 string (e.g. `2024-01-31T23:59:59Z`).
+</ParamField>
+
+<ParamField query="page" type="integer">
+  The page number to retrieve. Defaults to `1`.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  The number of transactions to return per page. Maximum is `100`. Defaults to `20`.
+</ParamField>
+
+## Request Example
+
+```bash cURL
+curl 'https://api.smartech-dz.com/v1/account/transactions?type=debit&from=2024-01-01T00:00:00Z' \
+  -H 'Authorization: Bearer YOUR_ACCESS_TOKEN'
+```
+
+## Response
+
+Returns HTTP `200` on success. The `data` array contains transaction objects with the following fields.
+
+<ResponseField name="id" type="string">
+  The unique identifier for this transaction (e.g. `txn_001`).
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  The direction of the balance change. One of `debit`, `credit`, or `refund`.
+</ResponseField>
+
+<ResponseField name="amount" type="number">
+  The amount applied to your balance in DZD. Always a positive value regardless of transaction type.
+</ResponseField>
+
+<ResponseField name="balance_after" type="number">
+  Your total account balance in DZD immediately after this transaction was applied.
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  A human-readable summary of the transaction (e.g. `"Order ord_abc123 - Free Fire 100 Diamonds"`).
+</ResponseField>
+
+<ResponseField name="order_id" type="string | null">
+  The ID of the order associated with this transaction. Present for `debit` and `refund` transactions; `null` for top-up credits and other non-order transactions.
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  ISO 8601 timestamp of when this transaction was recorded.
+</ResponseField>
+
+```json Sample Response
+{
+  "success": true,
+  "data": [
+    {
+      "id": "txn_001",
+      "type": "debit",
+      "amount": 250.00,
+      "balance_after": 14750.00,
+      "description": "Order ord_abc123 - Free Fire 100 Diamonds",
+      "order_id": "ord_abc123",
+      "created_at": "2024-01-15T10:30:45Z"
+    },
+    {
+      "id": "txn_002",
+      "type": "credit",
+      "amount": 10000.00,
+      "balance_after": 25000.00,
+      "description": "Account top-up",
+      "order_id": null,
+      "created_at": "2024-01-14T09:00:00Z"
+    }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 47 },
+  "requestId": "req_txn456"
+}
+```
+
+<Note>
+  Transactions are returned sorted by `created_at` in descending order, so the most recent activity always appears first. Use the `from` and `to` query parameters together with `page` and `limit` to paginate through a specific time range.
+</Note>

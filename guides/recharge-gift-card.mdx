@@ -1,0 +1,160 @@
+---
+title: "Recharge Gift Cards with the Smartech API"
+sidebarTitle: "Gift Cards"
+description: "Step-by-step guide to finding available gift card products and placing a successful gift card top-up order via the Smartech Recharge API."
+---
+
+This guide walks you through the complete flow of recharging a gift card — from discovering available products to confirming delivery. By the end, you'll be able to query the product catalog, select a denomination, submit an order, and verify that the card has been successfully topped up.
+
+## Recharge Flow
+
+<Steps>
+  <Step title="Find Gift Card Products">
+    Query the product catalog filtered by the `GIFT_CARD` category to retrieve all available gift card offerings.
+
+    ```bash
+    curl --request GET \
+      --url "https://api.smartech-dz.com/v1/products?category=GIFT_CARD" \
+      --header "Authorization: Bearer YOUR_ACCESS_TOKEN"
+    ```
+
+    **Sample response:**
+
+    ```json
+    {
+      "success": true,
+      "data": [
+        {
+          "id": "prod_gc_amazon_500",
+          "name": "Amazon Gift Card",
+          "category": "GIFT_CARD",
+          "currency": "DZD",
+          "tags": ["amazon", "shopping"],
+          "denominations": [
+            { "id": "denom_gc_500", "value": 500, "label": "500 DZD" },
+            { "id": "denom_gc_1000", "value": 1000, "label": "1000 DZD" }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "id": "prod_gc_itunes_500",
+          "name": "iTunes Gift Card",
+          "category": "GIFT_CARD",
+          "currency": "DZD",
+          "tags": ["apple", "itunes", "media"],
+          "denominations": [
+            { "id": "denom_itunes_500", "value": 500, "label": "500 DZD" },
+            { "id": "denom_itunes_1500", "value": 1500, "label": "1500 DZD" }
+          ],
+          "status": "ACTIVE"
+        }
+      ]
+    }
+    ```
+  </Step>
+
+  <Step title="Choose a Denomination">
+    Each product includes a `denominations` array. Read through the array and select the entry that matches the value you want to load. Copy its `id` — you'll pass this as `denomination_id` in the order request.
+
+    ```json
+    {
+      "denominations": [
+        { "id": "denom_gc_500", "value": 500, "label": "500 DZD" },
+        { "id": "denom_gc_1000", "value": 1000, "label": "1000 DZD" }
+      ]
+    }
+    ```
+
+    In this example, to load 500 DZD onto the card you would use `"denomination_id": "denom_gc_500"`.
+  </Step>
+
+  <Step title="Place the Order">
+    Submit a `POST /orders` request with the product, denomination, and the card's identifier.
+
+    ```bash
+    curl --request POST \
+      --url "https://api.smartech-dz.com/v1/orders" \
+      --header "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+      --header "Content-Type: application/json" \
+      --data '{
+        "product_id": "prod_gc_amazon_500",
+        "denomination_id": "denom_gc_500",
+        "card_code": "CARD-XXXXXXXX",
+        "reference": "order-001"
+      }'
+    ```
+
+    The `card_code` field identifies the gift card to be loaded — this is typically the card's serial number or barcode. For digital gift cards, some products accept a `recipient_email` instead; check the product's metadata for which field applies.
+
+    **Sample response:**
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "order_id": "ord_a1b2c3d4",
+        "status": "PENDING",
+        "product_id": "prod_gc_amazon_500",
+        "denomination_id": "denom_gc_500",
+        "card_code": "CARD-XXXXXXXX",
+        "reference": "order-001",
+        "created_at": "2024-11-15T10:30:00Z"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Confirm Delivery">
+    Poll `GET /orders/{order_id}` to check the order status, or — preferably — listen for the `order.completed` webhook event.
+
+    ```bash
+    curl --request GET \
+      --url "https://api.smartech-dz.com/v1/orders/ord_a1b2c3d4" \
+      --header "Authorization: Bearer YOUR_ACCESS_TOKEN"
+    ```
+
+    **Completed order response:**
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "order_id": "ord_a1b2c3d4",
+        "status": "COMPLETED",
+        "product_id": "prod_gc_amazon_500",
+        "denomination_id": "denom_gc_500",
+        "card_code": "CARD-XXXXXXXX",
+        "reference": "order-001",
+        "delivery": {
+          "confirmation_code": "DLVR-98765XYZ",
+          "delivered_at": "2024-11-15T10:30:42Z"
+        },
+        "created_at": "2024-11-15T10:30:00Z",
+        "updated_at": "2024-11-15T10:30:42Z"
+      }
+    }
+    ```
+
+    Once `status` is `"COMPLETED"`, the `delivery.confirmation_code` confirms that the value was successfully loaded onto the card.
+  </Step>
+</Steps>
+
+## Gift Card-Specific Fields
+
+The following fields are required (or conditionally required) in the `POST /orders` request body for gift card top-ups.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `product_id` | string | ✅ Yes | The unique ID of the gift card product, obtained from `GET /products`. |
+| `denomination_id` | string | ✅ Yes | The ID of the selected denomination from the product's `denominations` array. |
+| `card_code` | string | Conditional | The gift card serial number or barcode. Required unless the product uses `recipient_email`. |
+| `recipient_email` | string | Conditional | Recipient's email address for digital gift cards. Required for products that deliver codes by email instead of card code. |
+| `reference` | string | ❌ Optional | Your internal order reference for reconciliation. Must be unique if provided. |
+
+<Tip>
+  In production, use the `order.completed` webhook rather than polling `GET /orders/{order_id}`. Webhooks give you instant delivery confirmation without burning through API rate limits. See the [Callbacks guide](/concepts/callbacks) for setup instructions.
+</Tip>
+
+<Note>
+  Gift card codes are **single-use and non-reversible** once delivered. After a successful recharge, the loaded value cannot be reclaimed or refunded through the API. Always verify the `card_code` or `recipient_email` before placing an order.
+</Note>

@@ -1,0 +1,163 @@
+---
+title: "Top Up PUBG Unknown Cash via the Smartech API"
+sidebarTitle: "PUBG UC"
+description: "Guide to recharging PUBG Mobile and PUBG PC Unknown Cash (UC) using the Smartech Recharge API, including player ID lookup tips."
+---
+
+This guide covers placing a PUBG UC recharge order. You need the player's numeric PUBG ID — visible on the PUBG profile screen — to direct the top-up to the correct account. Make sure you have the right ID before submitting an order, as UC delivered to the wrong account cannot be recovered.
+
+<Note>
+  **PUBG Mobile and PUBG PC are separate platforms** with different product IDs. When querying the product catalog, filter by the `name` or `tags` fields to distinguish between them. PUBG Mobile products are typically tagged `["pubg", "mobile"]`, while PUBG PC products are tagged `["pubg", "pc"]`. Never mix product IDs across platforms.
+</Note>
+
+## Recharge Flow
+
+<Steps>
+  <Step title="Find PUBG UC Products">
+    Query the product catalog filtered by the `PUBG_UC` category to list all available UC packages.
+
+    ```bash
+    curl --request GET \
+      --url "https://api.smartech-dz.com/v1/products?category=PUBG_UC" \
+      --header "Authorization: Bearer YOUR_ACCESS_TOKEN"
+    ```
+
+    **Sample response:**
+
+    ```json
+    {
+      "success": true,
+      "data": [
+        {
+          "id": "prod_pubg_mobile_600",
+          "name": "PUBG Mobile UC",
+          "category": "PUBG_UC",
+          "currency": "DZD",
+          "tags": ["pubg", "mobile"],
+          "denominations": [
+            { "id": "denom_pubg_60", "value": 60, "label": "60 UC" },
+            { "id": "denom_pubg_325", "value": 325, "label": "325 UC" },
+            { "id": "denom_pubg_600", "value": 600, "label": "600 UC" },
+            { "id": "denom_pubg_1800", "value": 1800, "label": "1800 UC" }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "id": "prod_pubg_pc_600",
+          "name": "PUBG PC UC",
+          "category": "PUBG_UC",
+          "currency": "DZD",
+          "tags": ["pubg", "pc"],
+          "denominations": [
+            { "id": "denom_pubgpc_600", "value": 600, "label": "600 UC" },
+            { "id": "denom_pubgpc_1800", "value": 1800, "label": "1800 UC" }
+          ],
+          "status": "ACTIVE"
+        }
+      ]
+    }
+    ```
+  </Step>
+
+  <Step title="Get the Player ID">
+    The player's numeric PUBG ID is required to route the UC to the correct account. Here's how players can locate it on each platform:
+
+    **PUBG Mobile**
+    1. Open PUBG Mobile and tap your **avatar** in the top-left corner to open your profile.
+    2. The numeric Player ID is displayed **below your in-game avatar and username**.
+    3. It typically looks like `5123456789` (9–10 digits).
+
+    **PUBG PC**
+    1. Open the game and navigate to **Settings → Basic** to find your account identifier, or
+    2. View your **Steam profile** and locate your linked PUBG player ID.
+
+    Collect this ID from the end user before proceeding. Confirm it visually — typos are a common cause of incorrect deliveries.
+  </Step>
+
+  <Step title="Place the Order">
+    Submit a `POST /orders` request with the product, denomination, and the player's PUBG ID.
+
+    ```bash
+    curl --request POST \
+      --url "https://api.smartech-dz.com/v1/orders" \
+      --header "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+      --header "Content-Type: application/json" \
+      --data '{
+        "product_id": "prod_pubg_mobile_600",
+        "denomination_id": "denom_pubg_600",
+        "player_id": "5123456789",
+        "reference": "order-002"
+      }'
+    ```
+
+    **Sample response:**
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "order_id": "ord_e5f6g7h8",
+        "status": "PENDING",
+        "product_id": "prod_pubg_mobile_600",
+        "denomination_id": "denom_pubg_600",
+        "player_id": "5123456789",
+        "reference": "order-002",
+        "created_at": "2024-11-15T11:00:00Z"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Verify Delivery">
+    Poll `GET /orders/{order_id}` to confirm the recharge was delivered, or listen for the `order.completed` webhook.
+
+    ```bash
+    curl --request GET \
+      --url "https://api.smartech-dz.com/v1/orders/ord_e5f6g7h8" \
+      --header "Authorization: Bearer YOUR_ACCESS_TOKEN"
+    ```
+
+    **Completed order response:**
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "order_id": "ord_e5f6g7h8",
+        "status": "COMPLETED",
+        "product_id": "prod_pubg_mobile_600",
+        "denomination_id": "denom_pubg_600",
+        "player_id": "5123456789",
+        "reference": "order-002",
+        "delivery": {
+          "confirmation_code": "DLVR-PUBG77421",
+          "delivered_at": "2024-11-15T11:00:28Z"
+        },
+        "created_at": "2024-11-15T11:00:00Z",
+        "updated_at": "2024-11-15T11:00:28Z"
+      }
+    }
+    ```
+
+    UC typically appears in the player's PUBG account **within 30 seconds** of the order reaching `COMPLETED` status. If the player doesn't see it immediately, ask them to restart the game.
+  </Step>
+</Steps>
+
+## PUBG-Specific Fields
+
+The following fields are required in the `POST /orders` request body for PUBG UC top-ups.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `product_id` | string | ✅ Yes | The unique ID of the PUBG UC product (Mobile or PC), obtained from `GET /products`. |
+| `denomination_id` | string | ✅ Yes | The ID of the selected UC denomination from the product's `denominations` array. |
+| `player_id` | string | ✅ Yes | The player's numeric PUBG ID as a string (e.g., `"5123456789"`). Must match the platform of the selected product. |
+| `reference` | string | ❌ Optional | Your internal order reference for reconciliation. Must be unique if provided. |
+
+<Warning>
+  **Incorrect player IDs result in permanent loss of UC.** If you supply a `player_id` that belongs to a different account, the UC will be delivered to that account and **cannot be reversed or refunded**. Always double-check the player ID before submitting the request.
+</Warning>
+
+<Tip>
+  Validate the player ID in your UI before calling the API. A good practice is to display the ID back to the end user and require them to confirm it — for example, with a "Is this your Player ID?" confirmation step — before your application places the order.
+</Tip>

@@ -1,0 +1,106 @@
+---
+title: "Authentication API Overview — Smartech Recharge"
+sidebarTitle: "Overview"
+description: "Overview of Smartech Recharge API authentication: OAuth 2.0 client credentials, token format, required headers, and security best practices."
+---
+
+The Smartech Recharge API uses the **OAuth 2.0 client credentials** flow. All API requests must include a valid Bearer token in the `Authorization` header. You obtain this token by exchanging your `client_id` and `client_secret` with the token endpoint before making any other calls.
+
+---
+
+## Credentials
+
+Smartech issues you a **`client_id`** and a **`client_secret`** when you register for API access. Your `client_id` identifies your application, while your `client_secret` is used to prove ownership of that identity during token generation.
+
+<Warning>
+  **Never share your `client_secret`.** Do not commit it to source control, expose it in client-side code, or include it in any public-facing application. Treat it with the same care as a password.
+</Warning>
+
+If you believe your secret has been compromised, rotate your credentials immediately from the Smartech developer dashboard.
+
+---
+
+## Token Request
+
+To obtain an access token, send a `POST` request to the `/auth/token` endpoint with your credentials in the request body. The server returns a short-lived Bearer token you can use to authenticate subsequent requests.
+
+See the [Generate Token](/api-reference/auth/generate-token) page for the full endpoint reference, request parameters, and response schema.
+
+---
+
+## Using Tokens
+
+Include the access token in the `Authorization` header of every API request:
+
+```
+Authorization: Bearer <access_token>
+```
+
+The examples below show how to make an authenticated request against the Smartech Recharge API:
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET https://api.smartech-dz.com/v1/products \
+  -H 'Authorization: Bearer <access_token>' \
+  -H 'Accept: application/json'
+```
+
+```python Python
+import requests
+
+url = "https://api.smartech-dz.com/v1/products"
+headers = {
+    "Authorization": "Bearer <access_token>",
+    "Accept": "application/json",
+}
+
+response = requests.get(url, headers=headers)
+print(response.json())
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.smartech-dz.com/v1/products", {
+  method: "GET",
+  headers: {
+    Authorization: "Bearer <access_token>",
+    Accept: "application/json",
+  },
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+</CodeGroup>
+
+---
+
+## Token Lifetime
+
+Each access token is valid for the number of seconds indicated by the `expires_in` field returned at generation time. The default lifetime is **3600 seconds (1 hour)**.
+
+<Note>
+  Do not wait for a request to fail with a `401 Unauthorized` before refreshing your token. Instead, track the token's issue time and proactively request a new one a few minutes before expiry to avoid authentication gaps in your integration.
+</Note>
+
+---
+
+## Security Best Practices
+
+- **Store secrets in environment variables.** Never hard-code `client_id` or `client_secret` directly in your source code or configuration files checked into version control.
+- **Rotate credentials periodically.** Regularly cycle your `client_secret` from the developer dashboard, especially after team membership changes.
+- **Never log tokens.** Ensure your application logging, error tracking, and analytics pipelines are configured to redact `Authorization` headers and token values.
+- **Use HTTPS only.** All requests to the Smartech Recharge API must be made over HTTPS. Plain HTTP connections are rejected.
+- **Scope token storage appropriately.** In server-side applications, store tokens in memory or a secure secrets manager rather than databases or flat files.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Generate Token" icon="key" href="/api-reference/auth/generate-token">
+    Exchange your client credentials for a Bearer access token via `POST /auth/token`.
+  </Card>
+  <Card title="Authentication Guide" icon="shield-halved" href="/authentication">
+    Step-by-step walkthrough of the full OAuth 2.0 client credentials flow with code samples.
+  </Card>
+</CardGroup>

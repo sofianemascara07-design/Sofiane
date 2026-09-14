@@ -1,13 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "Smartech Recharge API",
+  "projectType": "api-service",
+  "projectName": "Smartech Recharge API",
+  "projectDescription": "A REST API for programmatic top-up of Gift Cards, PUBG UC, and Free Fire Diamonds in Algeria.",
   "theme": "luma",
-  "colors": {
-    "primary": "#ef7025",
-    "light": "#eec9bc",
-    "dark": "#4fa1ab"
-  },
-  "favicon": "/favicon.svg",
+  "primaryColor": "#ef7025",
+  "lightColor": "#eec9bc",
+  "darkColor": "#4fa1ab",
   "navigation": {
     "tabs": [
       {
@@ -76,20 +74,23 @@
       }
     ]
   },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:support@smartech-dz.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Get API Access",
-      "href": "mailto:support@smartech-dz.com"
-    }
-  },
-  "footer": {
-    "socials": {}
-  }
+  "keyFeatures": [
+    "Gift card top-up (multi-brand)",
+    "PUBG UC recharge",
+    "Free Fire Diamond recharge",
+    "Real-time order status & callbacks",
+    "Balance management and transaction history",
+    "Secure API key authentication",
+    "Webhook notifications for order events"
+  ],
+  "publicApiSurface": [
+    "POST /auth/token",
+    "GET /products",
+    "GET /products/{id}",
+    "POST /orders",
+    "GET /orders/{id}",
+    "GET /orders",
+    "GET /account/balance",
+    "GET /account/transactions"
+  ]
 }

@@ -1,0 +1,149 @@
+---
+title: "Top Up Free Fire Diamonds via the Smartech API"
+sidebarTitle: "Free Fire"
+description: "Guide to recharging Garena Free Fire Diamonds using the Smartech Recharge API, including UID lookup and denomination selection."
+---
+
+This guide covers placing a Free Fire Diamond recharge order. You need the player's Free Fire UID — a purely numeric identifier found on the player's in-game profile — to route the Diamonds to the correct account. Confirm the UID with the end user before placing an order, as Diamonds sent to the wrong UID cannot be recovered.
+
+## Recharge Flow
+
+<Steps>
+  <Step title="Find Free Fire Products">
+    Query the product catalog filtered by the `FREE_FIRE_DIAMOND` category to retrieve all available Diamond packages.
+
+    ```bash
+    curl --request GET \
+      --url "https://api.smartech-dz.com/v1/products?category=FREE_FIRE_DIAMOND" \
+      --header "Authorization: Bearer YOUR_ACCESS_TOKEN"
+    ```
+
+    **Sample response:**
+
+    ```json
+    {
+      "success": true,
+      "data": [
+        {
+          "id": "prod_ff_100",
+          "name": "Free Fire Diamonds",
+          "category": "FREE_FIRE_DIAMOND",
+          "currency": "DZD",
+          "tags": ["freefire", "diamonds", "garena"],
+          "denominations": [
+            { "id": "denom_ff_100", "value": 100, "label": "100 Diamonds" },
+            { "id": "denom_ff_310", "value": 310, "label": "310 Diamonds" },
+            { "id": "denom_ff_520", "value": 520, "label": "520 Diamonds" },
+            { "id": "denom_ff_1060", "value": 1060, "label": "1060 Diamonds" },
+            { "id": "denom_ff_2180", "value": 2180, "label": "2180 Diamonds" }
+          ],
+          "status": "ACTIVE"
+        }
+      ]
+    }
+    ```
+
+    Browse the `denominations` array to find the package the player wants, then note the corresponding `id` to use as `denomination_id` in your order.
+  </Step>
+
+  <Step title="Get the Player UID">
+    The Free Fire UID is required to send Diamonds to the correct account. Here's how players can find it:
+
+    1. Open Free Fire and tap the **avatar or profile icon** in the top-left corner of the main lobby.
+    2. The UID is displayed **below the player's in-game name** on the profile screen.
+    3. Copy the full UID exactly as shown.
+
+    <Note>
+      The Free Fire UID is **purely numeric** — for example, `123456789`. It contains no letters, spaces, or special characters. If a player provides an ID with non-numeric characters, ask them to double-check — they may be looking at their username instead of their UID.
+    </Note>
+
+    Collect and confirm this UID from the end user before moving to the next step.
+  </Step>
+
+  <Step title="Place the Order">
+    Submit a `POST /orders` request with the product, denomination, and the player's Free Fire UID.
+
+    ```bash
+    curl --request POST \
+      --url "https://api.smartech-dz.com/v1/orders" \
+      --header "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+      --header "Content-Type: application/json" \
+      --data '{
+        "product_id": "prod_ff_310",
+        "denomination_id": "denom_ff_310",
+        "player_id": "123456789",
+        "reference": "order-003"
+      }'
+    ```
+
+    **Sample response:**
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "order_id": "ord_i9j0k1l2",
+        "status": "PENDING",
+        "product_id": "prod_ff_310",
+        "denomination_id": "denom_ff_310",
+        "player_id": "123456789",
+        "reference": "order-003",
+        "created_at": "2024-11-15T12:00:00Z"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Confirm Delivery">
+    Poll `GET /orders/{order_id}` to verify the Diamonds were delivered, or listen for the `order.completed` webhook event for instant notification.
+
+    ```bash
+    curl --request GET \
+      --url "https://api.smartech-dz.com/v1/orders/ord_i9j0k1l2" \
+      --header "Authorization: Bearer YOUR_ACCESS_TOKEN"
+    ```
+
+    **Completed order response:**
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "order_id": "ord_i9j0k1l2",
+        "status": "COMPLETED",
+        "product_id": "prod_ff_310",
+        "denomination_id": "denom_ff_310",
+        "player_id": "123456789",
+        "reference": "order-003",
+        "delivery": {
+          "confirmation_code": "DLVR-FF55298",
+          "delivered_at": "2024-11-15T12:01:03Z"
+        },
+        "created_at": "2024-11-15T12:00:00Z",
+        "updated_at": "2024-11-15T12:01:03Z"
+      }
+    }
+    ```
+
+    Free Fire Diamonds typically appear in the player's account **within 60 seconds** of the order reaching `COMPLETED` status. If the player doesn't see them right away, ask them to restart the game or check their in-game inbox.
+  </Step>
+</Steps>
+
+## Free Fire-Specific Fields
+
+The following fields are required in the `POST /orders` request body for Free Fire Diamond top-ups.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `product_id` | string | ✅ Yes | The unique ID of the Free Fire Diamond product, obtained from `GET /products`. |
+| `denomination_id` | string | ✅ Yes | The ID of the selected Diamond denomination from the product's `denominations` array. |
+| `player_id` | string | ✅ Yes | The player's Free Fire UID as a numeric string (e.g., `"123456789"`). |
+| `reference` | string | ❌ Optional | Your internal order reference for reconciliation. Must be unique if provided. |
+
+<Warning>
+  **Diamonds sent to the wrong UID cannot be recovered.** If you supply an incorrect `player_id`, the Diamonds will be credited to the wrong account and there is no mechanism to reverse the transaction. Always display the UID to the end user and require explicit confirmation before placing the order.
+</Warning>
+
+<Tip>
+  Avoid polling `GET /orders/{order_id}` in a loop — use the `order.completed` webhook instead for real-time delivery confirmation without the overhead. See the [Callbacks guide](/concepts/callbacks) for how to register your webhook endpoint.
+</Tip>

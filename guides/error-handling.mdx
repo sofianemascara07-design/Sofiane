@@ -1,0 +1,97 @@
+---
+title: "Error Handling and Troubleshooting Recharge Orders"
+sidebarTitle: "Error Handling"
+description: "Understand Smartech API error codes, HTTP status codes, and best practices for building resilient recharge integrations."
+---
+
+The Smartech Recharge API uses standard HTTP status codes and machine-readable error codes to help you diagnose and resolve issues quickly. Every error response follows a consistent envelope format, so you can handle failures programmatically without parsing free-text messages.
+
+## Error Response Format
+
+All failed requests return a JSON body with the following structure:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_PLAYER_ID",
+    "message": "The provided player_id does not correspond to a valid account.",
+    "requestId": "req_xyz789"
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `success` | boolean | Always `false` for error responses. |
+| `error.code` | string | A machine-readable error code you can use in conditional logic. See the [Common Error Codes](#common-error-codes) table below. |
+| `error.message` | string | A human-readable description of the problem, intended for logging and debugging — not for display to end users. |
+| `error.requestId` | string | A unique identifier for the request. **Include this in any support ticket** to help the Smartech team trace the issue. |
+
+## HTTP Status Codes
+
+| Status | Meaning | Recommended Action |
+|---|---|---|
+| `200 OK` | The request succeeded. | No action needed — process the response normally. |
+| `400 Bad Request` | The request is missing a required parameter or contains an invalid value. | Read `error.code` to identify the specific field, fix the request, and retry. |
+| `401 Unauthorized` | Your access token is missing or has expired. | Re-authenticate to obtain a fresh token, then retry the request. |
+| `403 Forbidden` | Your account does not have permission to perform this operation. | Review the required scopes for this endpoint or contact support to adjust your account's permissions. |
+| `404 Not Found` | The requested resource (product, order, etc.) does not exist. | Verify the IDs in your request path or body. |
+| `409 Conflict` | You reused an idempotency key with a different set of parameters. | Use a new, unique idempotency key for each distinct order. |
+| `422 Unprocessable Entity` | The request is well-formed but failed a business logic check (e.g., invalid player ID). | Read `error.code` for the specific reason; fix the underlying issue before retrying. |
+| `429 Too Many Requests` | You have exceeded the API rate limit. | Wait for the duration specified in the `Retry-After` response header, then retry with exponential backoff. |
+| `500 Internal Server Error` | An unexpected error occurred on the Smartech side. | Retry with exponential backoff. If the error persists, contact support and provide your `requestId`. |
+
+## Common Error Codes
+
+| Code | Description | How to Fix |
+|---|---|---|
+| `INVALID_PLAYER_ID` | The `player_id` you provided was not found in the game's system. | Ask the player to verify their ID in-game. Confirm they are providing the correct platform's ID (e.g., PUBG Mobile vs. PUBG PC). |
+| `PRODUCT_UNAVAILABLE` | The requested product is currently inactive or out of stock. | Call `GET /products` to get an up-to-date list of active products and select an available alternative. |
+| `INSUFFICIENT_BALANCE` | Your Smartech account does not have enough balance to cover the order. | Top up your Smartech account balance before placing further orders. |
+| `INVALID_DENOMINATION` | The `denomination_id` does not belong to the specified `product_id`. | Re-fetch the product details from `GET /products` and use a `denomination_id` from that product's own `denominations` array. |
+| `DUPLICATE_ORDER` | An order with this idempotency key already exists but was submitted with different parameters. | Generate a new unique idempotency key for the new order. Do not reuse keys across different transactions. |
+| `DELIVERY_FAILED` | The top-up reached the game's servers but was rejected by the provider. | Check whether the player's account is eligible to receive the top-up (e.g., not banned or restricted). Contact support with the `requestId` if the issue persists. |
+
+## Retry Strategy
+
+Not all errors are retryable. Following the right strategy avoids wasting requests, creating duplicate orders, or masking bugs in your integration.
+
+<Steps>
+  <Step title="Identify whether the error is transient">
+    Only **`500 Internal Server Error`** and **`429 Too Many Requests`** are transient — they indicate a temporary condition that may resolve on its own. All `4xx` errors (except `429`) indicate a problem with the request itself and will not resolve by simply retrying.
+  </Step>
+
+  <Step title="Fix 4xx errors before retrying">
+    If you receive any `4xx` response other than `429`, **do not retry** the same request. Read `error.code`, correct the underlying issue (e.g., fix the player ID, refresh your token, replenish your balance), and then submit a new request.
+  </Step>
+
+  <Step title="Apply exponential backoff for transient errors">
+    For `500` and `429` responses, wait before retrying and increase the delay with each attempt:
+
+    | Attempt | Wait Before Retry |
+    |---|---|
+    | 1st retry | 1 second |
+    | 2nd retry | 2 seconds |
+    | 3rd retry | 4 seconds |
+    | 4th retry | 8 seconds |
+
+    For `429` responses, also honour the `Retry-After` header — use whichever value is longer.
+  </Step>
+
+  <Step title="Always use idempotency keys">
+    Include a unique idempotency key header (`Idempotency-Key: <your-unique-key>`) on every `POST /orders` request. This allows you to safely retry a request after a network timeout or `500` error without risking a duplicate charge — the API will return the original response if the key has already been processed successfully.
+  </Step>
+</Steps>
+
+## Getting Help
+
+If you encounter an error you cannot resolve, the Smartech support team can investigate using your `requestId`. Every API response — success or failure — includes a `requestId` in the response body.
+
+When reaching out, include the following in your message:
+- The `requestId` from the failing response.
+- The endpoint and HTTP method you called.
+- The `error.code` and `error.message` values.
+- The approximate timestamp of the request.
+
+📧 Contact Smartech support at **[support@smartech-dz.com](mailto:support@smartech-dz.com)**.

@@ -1,0 +1,123 @@
+---
+title: "Authenticate with the Smartech Recharge API"
+sidebarTitle: "Authentication"
+description: "Learn how to generate and use Bearer tokens to authenticate every Smartech Recharge API request securely."
+---
+
+The Smartech Recharge API uses the **OAuth 2.0 client credentials** flow for authentication. You exchange your `client_id` and `client_secret` for a short-lived Bearer token, then include that token in the `Authorization` header of every subsequent API request. No user login or redirect flow is required — this flow is designed for server-to-server integrations.
+
+## Your Credentials
+
+Your `client_id` and `client_secret` are issued by Smartech when you create an API account. Together they uniquely identify your application and control which products and operations you are authorized to access.
+
+<Warning>
+  Never expose your `client_secret` in client-side code, mobile applications, or public repositories. Anyone who obtains your secret can make API calls on your behalf and incur charges on your account. Always store credentials in environment variables or a dedicated secrets manager (such as AWS Secrets Manager, HashiCorp Vault, or a `.env` file that is excluded from version control).
+</Warning>
+
+Contact [Smartech support](mailto:support@smartech-dz.com) if you need to rotate a compromised secret or if you have not yet received your credentials.
+
+## Generating a Token
+
+Request a Bearer token by sending a `POST` request to `/auth/token` with your credentials encoded as `application/x-www-form-urlencoded` form data.
+
+**Endpoint**
+
+```
+POST https://api.smartech-dz.com/v1/auth/token
+```
+
+**Request body** (`Content-Type: application/x-www-form-urlencoded`)
+
+| Parameter | Required | Description |
+|---|---|---|
+| `grant_type` | Yes | Must be `client_credentials`. |
+| `client_id` | Yes | Your application's client ID issued by Smartech. |
+| `client_secret` | Yes | Your application's client secret issued by Smartech. |
+
+**Example request**
+
+```bash curl
+curl --request POST \
+  --url https://api.smartech-dz.com/v1/auth/token \
+  --header 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'grant_type=client_credentials&client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET'
+```
+
+**Successful response**
+
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsInR...",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `access_token` | string | The Bearer token to include in all API requests. |
+| `token_type` | string | Always `"Bearer"`. |
+| `expires_in` | integer | Number of seconds until the token expires (typically `3600`). |
+
+## Using the Token
+
+Pass the `access_token` value in the `Authorization` header of every API request using the `Bearer` scheme:
+
+```
+Authorization: Bearer <access_token>
+```
+
+The following examples show how to make an authenticated request to the `/products` endpoint:
+
+<CodeGroup>
+  ```bash curl
+  curl --request GET \
+    --url https://api.smartech-dz.com/v1/products \
+    --header 'Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR...'
+  ```
+
+  ```python Python
+  import requests
+
+  ACCESS_TOKEN = "eyJhbGciOiJSUzI1NiIsInR..."
+
+  response = requests.get(
+      "https://api.smartech-dz.com/v1/products",
+      headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+  )
+
+  print(response.json())
+  ```
+
+  ```javascript JavaScript
+  const ACCESS_TOKEN = "eyJhbGciOiJSUzI1NiIsInR...";
+
+  const response = await fetch("https://api.smartech-dz.com/v1/products", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${ACCESS_TOKEN}`,
+    },
+  });
+
+  const data = await response.json();
+  console.log(data);
+  ```
+</CodeGroup>
+
+## Token Expiry & Refresh
+
+Each token is valid for the number of seconds indicated by the `expires_in` field in the token response (typically **3600 seconds / 1 hour**). After that window closes, the token is no longer accepted and you will receive a `401 Unauthorized` response.
+
+**Best practices for managing token lifecycle:**
+
+- **Cache the token** — store it in memory (or a fast cache like Redis) and reuse it across requests for its full lifetime. Requesting a new token on every API call is wasteful and may trigger rate limits.
+- **Proactive refresh** — track the token's expiry time (`issued_at + expires_in`) and request a new token when **less than 60 seconds remain**. This prevents requests from failing mid-flight due to a token that expires between the time you check and the time the server validates it.
+- **Handle `401` gracefully** — if a cached token has unexpectedly expired (for example, due to a server-side revocation), catch the `401` response, request a new token immediately, and retry the failed request once.
+
+## Authentication Errors
+
+| Error Code | Meaning | Resolution |
+|---|---|---|
+| `401 Unauthorized` | The Bearer token is missing, invalid, or has expired. | Request a new token via `POST /auth/token` and retry the request with the fresh token. |
+| `403 Forbidden` | The token is valid but your account does not have permission to access the requested resource or perform the requested action. | Check that your account has been granted the required product or operation permissions. Contact Smartech support if you believe this is a mistake. |
+| `400 Bad Request` | The token request body is malformed — for example, `grant_type` is missing or `client_id` / `client_secret` are not well-formed strings. | Review the request body against the parameters listed in the [Generating a Token](#generating-a-token) section above and ensure all required fields are present and correctly formatted. |
