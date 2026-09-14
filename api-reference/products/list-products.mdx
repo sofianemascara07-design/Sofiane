@@ -1,6 +1,6 @@
 ---
 title: "GET /products — List Available Recharge Products"
-sidebarTitle: "GET /products"
+sidebarTitle: "List Products"
 description: "GET /products — retrieve the full catalog of recharge products. Filter by category (GIFT_CARD, PUBG_UC, FREE_FIRE_DIAMOND) and active status."
 ---
 
@@ -164,3 +164,10 @@ Returns `HTTP 200 OK` on success, with a paginated list of product objects.
   "requestId": "req_abc123"
 }
 ```
+
+## Error Responses
+
+| HTTP Status | Error Code | Description |
+|---|---|---|
+| `401 Unauthorized` | `INVALID_TOKEN` | The Bearer token is missing, malformed, or has expired. |
+| `422 Unprocessable Entity` | `INVALID_PARAMETER` | A query parameter has an invalid value (e.g. an unrecognised `category`). |

@@ -1,7 +1,7 @@
 ---
-title: "Webhooks and Real-Time Order Callbacks"
+title: "Webhooks and Real-Time Order Callbacks | Smartech API"
 sidebarTitle: "Callbacks"
-description: "Configure webhooks to receive real-time notifications when your Smartech Recharge orders change status — no polling required."
+description: "Configure webhooks to receive real-time HTTP callbacks when your Smartech Recharge orders change status, eliminating the need to poll for updates."
 ---
 
 Instead of repeatedly calling `GET /orders/{id}` to check whether a recharge has been delivered, you can register a webhook URL and receive real-time HTTP POST callbacks the moment an order's status changes. Webhooks reduce latency, cut unnecessary API traffic, and let you react to delivery events — like unlocking a purchase or notifying a customer — as soon as they happen.

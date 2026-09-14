@@ -1,7 +1,7 @@
 ---
-title: "GET /products/{id} — Get a Single Product"
-sidebarTitle: "GET /products/{id}"
-description: "GET /products/{id} — fetch full details of one recharge product by its ID, including all denominations and required order fields."
+title: "GET /products/{id} — Fetch a Single Product by ID"
+sidebarTitle: "Get Product"
+description: "Use GET /products/{id} to fetch full details of one recharge product by ID, including all available denominations and required order fields."
 ---
 
 Use `GET /products/{id}` to fetch full details of a specific product, including its denomination list and the fields required when placing an order.
@@ -46,6 +46,22 @@ response = requests.get(
 )
 
 print(response.json())
+```
+
+```javascript JavaScript
+const productId = "prod_ff_100";
+
+const response = await fetch(
+  `https://api.smartech-dz.com/v1/products/${productId}`,
+  {
+    headers: {
+      Authorization: "Bearer YOUR_ACCESS_TOKEN",
+    },
+  }
+);
+
+const data = await response.json();
+console.log(data);
 ```
 
 </CodeGroup>

@@ -1,7 +1,7 @@
 ---
-title: "Authenticate with the Smartech Recharge API"
+title: "How to Authenticate with the Smartech Recharge API"
 sidebarTitle: "Authentication"
-description: "Learn how to generate and use Bearer tokens to authenticate every Smartech Recharge API request securely."
+description: "Learn how to generate short-lived Bearer tokens and authenticate every Smartech Recharge API request securely using OAuth 2.0 client credentials."
 ---
 
 The Smartech Recharge API uses the **OAuth 2.0 client credentials** flow for authentication. You exchange your `client_id` and `client_secret` for a short-lived Bearer token, then include that token in the `Authorization` header of every subsequent API request. No user login or redirect flow is required — this flow is designed for server-to-server integrations.
